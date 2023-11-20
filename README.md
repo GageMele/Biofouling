@@ -1,2 +1,5 @@
 # Biofouling
-Biofouling Experiment resources
+Biofouling Test resources
+
+
+Here you'll find the resources for the biofousling testing I did 
