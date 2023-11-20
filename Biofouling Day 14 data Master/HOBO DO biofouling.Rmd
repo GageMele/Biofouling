@@ -1,0 +1,146 @@
+---
+title: "HOBO DO biofouling"
+output: html_document
+date: "2023-08-21"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+library(raster)
+library(dplyr)
+library(ggplot2)
+library(ggspatial)
+library(rgdal)
+library(scales)
+library(oz)
+library(sqldf)
+library(lubridate)
+library(hms)
+library(tidyr)
+library(tidyverse)
+library(cowplot)
+library(stringr)
+library(xts)
+library(car)
+```
+
+```{r}
+setwd("C:/Users/gagem/OneDrive/Desktop/Fouling exp/Day 14 data")
+
+hobo_do_raw<-read.csv("HOBO DO Master.csv")
+
+hobo_do_raw$date_time2<- as.POSIXct(hobo_do_raw$date_time, format = "%d-%m-%Y %H:%M:%OS")
+hobo_do_raw$date_time<-mdy_hm(hobo_do_raw$date_time, tz = "Asia/Riyadh")
+
+hobo_do<-hobo_do_raw %>%
+  filter(date_time >= "2023-07-25 12:00:00", date_time <= "2023-08-08 09:00:00")
+
+control<-hobo_do %>%
+  filter( treatment == "control")
+
+copper<-hobo_do %>%
+  filter( treatment == "copper")
+
+hand_clean<-hobo_do %>%
+  filter( treatment == "hand_clean")
+
+
+###DO vs TIME plots
+
+control%>%
+  ggplot(mapping = aes(x=date_time, y=DO, color = serial)) +
+  geom_point()+theme_cowplot()
+
+copper%>%
+  ggplot(mapping = aes(x=date_time, y=DO, color = serial)) +
+  geom_point()+theme_cowplot()
+
+hand_clean%>%
+  ggplot(mapping = aes(x=date_time, y=DO, color = serial)) +
+  geom_point()+theme_cowplot()
+
+###repeated measures anova
+
+
+rms<- function(x , y) sqrt(mean((x - y)^2))
+
+
+copper1<-copper%>%
+  filter(serial == 	21661326)
+copper2<-copper%>%
+  filter(serial == 	21661332)
+
+copper1$DO1<-copper1$DO
+copper1$DO2<-copper2$DO
+copper1$DO3<-copper2$DO
+
+copper1$DO_av<-((copper1$DO1 + copper1$DO2)/2)
+copper1$DO_dif<-copper1$DO_av - copper1$DO_av
+
+control1<-control%>%
+  filter(serial == 21661324)
+control2<-control%>%
+  filter(serial == 21661325)
+control3<-control%>%
+  filter(serial == 21661330)
+
+control1$DO1<-control1$DO
+control1$DO2<-control2$DO
+control1$DO3<-control3$DO
+
+control1$DO_av<-((control1$DO1 + control1$DO2 + control1$DO3)/3)
+control1$DO_dif<-control1$DO_av - copper1$DO_av
+
+
+hand_clean1<-hand_clean%>%
+  filter(serial == 21661327)
+hand_clean2<-hand_clean%>%
+  filter(serial == 21661333)
+hand_clean3<-hand_clean%>%
+  filter(serial == 21661334)
+
+hand_clean1$DO1<-hand_clean1$DO
+hand_clean1$DO2<-hand_clean2$DO
+hand_clean1$DO3<-hand_clean3$DO
+
+hand_clean1$DO_av<-((hand_clean1$DO1 + hand_clean1$DO2 + hand_clean1$DO3)/3)
+hand_clean1$DO_dif<-hand_clean1$DO_av - copper1$DO_av
+
+data_av<-rbind(control1, copper1, hand_clean1)
+
+
+
+data_av%>%
+  ggplot(mapping = aes(x=date_time, y= DO_av, color=treatment))+
+  geom_line(size =1)
+
+
+
+data_av%>%
+  ggplot(mapping = aes(x=date_time, y= DO_dif, color=treatment))+
+  geom_line(size =1)
+```
+

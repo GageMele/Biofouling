@@ -1,0 +1,244 @@
+---
+title: " miniDOT Biofouling"
+output: html_document
+date: "2023-08-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+install.packages("xts")
+install.packages("car")
+```
+
+
+```{r}
+library(raster)
+library(dplyr)
+library(ggplot2)
+library(ggspatial)
+library(rgdal)
+library(scales)
+library(oz)
+library(sqldf)
+library(lubridate)
+library(hms)
+library(tidyr)
+library(tidyverse)
+library(cowplot)
+library(stringr)
+library(xts)
+library(car)
+getwd()
+```
+
+
+```{r}
+setwd("C:/Users/gagem/OneDrive/Desktop/Fouling exp/Day 14 data")
+
+
+###miniDOT data
+
+miniDOTraw<-read.csv("miniDOT Master.csv")
+
+miniDOTraw$date_time1<- as.POSIXct(miniDOTraw$timestamp, format = "%d-%m-%Y %H:%M:%OS")
+miniDOTraw$date_time2<-mdy_hms(miniDOTraw$timestamp, tz = "Asia/Riyadh")
+
+miniDOT<-miniDOTraw %>%
+  filter(date_time1 >= "2023-07-25 12:01:00", date_time1 <= "2023-08-08 09:01:00")
+
+###Seperated data
+
+control<-miniDOT %>%
+  filter( treatment == "control", date_time1 >= "2023-07-25 12:01:00")
+
+copper<-miniDOT %>%
+  filter( treatment == "copper", date_time1 >= "2023-07-25 12:01:00")
+
+hand_clean<-miniDOT %>%
+  filter( treatment == "hand_clean", date_time1 >= "2023-07-25 12:01:00")
+
+wiper<-miniDOT %>%
+  filter( treatment == "wiper", date_time1 >= "2023-07-25 12:01:00")
+
+###DO vs TIME plots
+
+control%>%
+  ggplot(mapping = aes(x=date_time1, y=DO, color = serial)) +
+  geom_point()+theme_cowplot()+ggtitle("control")
+
+copper%>%
+  ggplot(mapping = aes(x=date_time1, y=DO, color = serial)) +
+  geom_point()+theme_cowplot()+ggtitle("copper")
+
+
+hand_clean%>%
+  ggplot(mapping = aes(x=date_time1, y=DO, color = serial)) +
+  geom_point()+theme_cowplot()+ggtitle("hand_clean")
+
+
+wiper%>%
+  ggplot(mapping = aes(x=date_time1, y=DO, color = serial)) +
+  geom_point()+theme_cowplot()+ggtitle("wiper")
+
+max(wiper$DO)
+ min(wiper$DO)
+
+
+
+###ANOVA
+
+aov<-aov(DO ~ treatment, data = miniDOT)
+
+block.aov<-aov(DO ~ treatment+date_time1, data = miniDOT)
+
+controlaov<-aov(DO ~ serial, data = control)
+
+copperaov<-aov(DO ~ serial, data = copper)
+
+wipeaov<-aov(DO ~ serial, data = wiper)
+
+hand_cleanaov<-aov(DO ~ serial, data= hand_clean)
+
+##ANOVA woth levene test and tukey test
+anova(aov)
+leveneTest(aov)
+tukey.mod <- TukeyHSD(aov)
+tukey.mod
+
+anova(block.aov)
+block.tukey.mod <- TukeyHSD(block.aov)
+block.tukey.mod
+
+anova(controlaov)
+
+anova(copperaov)
+
+anova(wipeaov)
+
+anova(hand_cleanaov)
+
+
+miniDOT%>%
+  ggplot(mapping = aes(x=treatment, y=DO, color = treatment))+
+           geom_violin()
+  
+###repeated measures anova on daily ranges
+
+```
+
+```{r}
+##Day 1
+
+miniDOT_d1<-miniDOTraw %>%
+  filter(date_time1 >= "2023-07-25 12:01:00", date_time1 <= "2023-07-26 12:01:00")
+
+control_d1<-miniDOT %>%
+  filter( treatment == "control", date_time1 >= "2023-07-25 12:01:00", date_time1 <= "2023-07-26 12:01:00")
+
+copper_d1<-miniDOT %>%
+  filter( treatment == "copper", date_time1 >= "2023-07-25 12:01:00", date_time1 <= "2023-07-26 12:01:00")
+
+hand_clean_d1<-miniDOT %>%
+  filter( treatment == "hand_clean", date_time1 >= "2023-07-25 12:01:00", date_time1 <= "2023-07-26 12:01:00")
+
+wiper_d1<-miniDOT %>%
+  filter( treatment == "wiper", date_time1 >= "2023-07-25 12:01:00", date_time1 <= "2023-07-26 12:01:00")
+
+aov_d1<-aov(DO ~ treatment, data = miniDOT_d1)
+
+controlaov_d1<-aov(DO ~ serial, data = control_d1)
+
+copperaov_d1<-aov(DO ~ serial, data = copper_d1)
+
+wipeaov_d1<-aov(DO ~ serial, data = wiper_d1)
+
+hand_cleanaov_d1<-aov(DO ~ serial, data= hand_clean_d1)
+
+##ANOVA woth levene test and tukey test
+anova(aov_d1)
+leveneTest(aov_d1)
+tukey.mod_d1 <- TukeyHSD(aov_d1)
+tukey.mod_d1
+
+anova(controlaov_d1)
+
+anova(copperaov_d1)
+
+anova(wipeaov_d1)
+
+anova(hand_cleanaov_d1)
+
+```
+
+```{r}
+##Day 2
+
+miniDOT_d2<-miniDOTraw %>%
+  filter(date_time1 >= "2023-07-26 12:01:00", date_time1 <= "2023-07-27 12:01:00")
+
+control_d2<-miniDOT %>%
+  filter( treatment == "control", date_time1 >= "2023-07-26 12:01:00", date_time1 <= "2023-07-27 12:01:00")
+
+copper_d2<-miniDOT %>%
+  filter( treatment == "copper", date_time1 >= "2023-07-26 12:01:00", date_time1 <= "2023-07-27 12:01:00")
+
+hand_clean_d2<-miniDOT %>%
+  filter( treatment == "hand_clean", date_time1 >= "2023-07-26 12:01:00", date_time1 <= "2023-07-27 12:01:00")
+
+wiper_d2<-miniDOT %>%
+  filter( treatment == "wiper", date_time1 >= "2023-07-26 12:01:00", date_time1 <= "2023-07-27 12:01:00")
+
+aov_d2<-aov(DO ~ treatment, data = miniDOT_d2)
+
+controlaov_d2<-aov(DO ~ serial, data = control_d2)
+
+copperaov_d2<-aov(DO ~ serial, data = copper_d2)
+
+wipeaov_d2<-aov(DO ~ serial, data = wiper_d2)
+
+hand_cleanaov_d2<-aov(DO ~ serial, data= hand_clean_d2)
+
+##ANOVA woth levene test and tukey test
+anova(aov_d2)
+leveneTest(aov_d2)
+tukey.mod_d2 <- TukeyHSD(aov_d2)
+tukey.mod_d2
+
+anova(controlaov_d2)
+
+anova(copperaov_d2)
+
+anova(wipeaov_d2)
+
+anova(hand_cleanaov_d2)
+
+```
+
+####HOBO pH
+```{r}
+
+```
+

@@ -1,0 +1,231 @@
+---
+title: "HOHO pH biofouling"
+output: html_document
+date: "2023-08-21"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+library(raster)
+library(dplyr)
+library(ggplot2)
+library(ggspatial)
+library(rgdal)
+library(scales)
+library(oz)
+library(sqldf)
+library(lubridate)
+library(hms)
+library(tidyr)
+library(tidyverse)
+library(cowplot)
+library(stringr)
+library(xts)
+library(car)
+library(ggpubr)
+devtools::install_github("kassambara/rstatix")
+library(rstatix)
+```
+
+
+```{r}
+setwd("C:/Users/gagem/OneDrive/Desktop/Fouling exp/Day 14 data")
+
+hobo_ph_raw<-read.csv("HOBO pH Master.csv")
+hobo_ph_raw$treatment<-as.factor(hobo_ph_raw$treatment)
+hobo_ph_raw$day<-as.factor(hobo_ph_raw$day)
+hobo_ph_raw$treatment<-as.factor(hobo_ph_raw$treatment)
+
+#hobo_ph_raw$date_time2<- as.POSIXct(hobo_ph_raw$date_time, format = "%d-%m-%Y %H:%M:%OS")
+hobo_ph_raw$date_time<-mdy_hm(hobo_ph_raw$date_time, tz = "Asia/Riyadh")
+
+hobo_ph<-hobo_ph_raw %>%
+  filter(date_time >= "2023-07-25 12:00:00" & date_time <= "2023-08-08 10:00:00")
+hobo_ph$day<-as.factor(hobo_ph$day)
+
+control<-hobo_ph %>%
+  filter( treatment == "control")
+
+copper<-hobo_ph %>%
+  filter( treatment == "copper")
+
+
+###ph vs TIME plots
+
+control%>%
+  ggplot(mapping = aes(x=date_time, y=pH, color = serial)) +
+  geom_point()+theme_cowplot()+ggtitle("control")
+
+
+copper%>%
+  ggplot(mapping = aes(x=date_time, y=pH, color = serial)) +
+  geom_point()+theme_cowplot()+ggtitle("copper")
+
+
+copper1<-copper%>%
+  filter(serial == 	21657430)
+copper2<-copper%>%
+  filter(serial == 	21657435)
+copper3<-copper%>%
+  filter(serial == 21673116)
+
+copper1$pH1<-copper1$pH
+copper1$pH2<-copper2$pH
+copper1$pH3<-copper3$pH
+
+copper1$pH_av<-((copper1$pH1 + copper1$pH2 + copper1$pH3)/3)
+copper1$pH_dif<-copper1$pH_av - copper1$pH_av
+
+control1<-control%>%
+  filter(serial == 	21657433)
+control2<-control%>%
+  filter(serial == 	21657436)
+control3<-control%>%
+  filter(serial == 	21673119)
+
+control1$pH1<-control1$pH
+control1$pH2<-control2$pH
+control1$pH3<-control3$pH
+
+control1$pH_av<-((control1$pH1 + control1$pH2 + control1$pH3)/3)
+control1$pH_dif<-control1$pH_av - copper1$pH_av
+
+
+data_av<-rbind(control1, copper1)
+
+data_av%>%
+  ggplot(mapping = aes(x=date_time, y= pH_av, color=treatment))+
+  geom_line(size =1)
+
+
+
+data_av%>%
+  ggplot(mapping = aes(x=date_time, y= pH_dif, color=treatment))+
+  geom_line(size =1)
+
+
+###Repeated measures anova on the daily range
+
+```
+
+
+###stats
+```{r}
+summary(hobo_ph)
+
+days<- function(dat, val){dat%>%
+  filter(day == val)}
+treats<-function(dat, var){dat%>%
+  filter(treatment == var)}
+serial<-function(dat, val){dat%>%
+    filter(serial == val)}
+  
+
+
+
+group_hobo_ph_range<- aggregate(pH~day*treatment*serial, data=hobo_ph, FUN=range)
+
+group_hobo_ph_mean<- aggregate(pH~day*treatment*serial, data=hobo_ph, FUN=mean)
+
+group_hobo_ph_range$range<-(group_hobo_ph_range$pH[,2]-group_hobo_ph_range$pH[,1])
+
+group_hobo_ph_range$serial<-as.factor(group_hobo_ph_range$serial)
+group_hobo_ph_range$day<-as.factor(group_hobo_ph_range$day)
+group_hobo_ph_range$treatment<-as.factor(group_hobo_ph_range$treatment)
+
+
+summary(group_hobo_ph_range)
+
+group_hobo_ph_range %>%
+  group_by(treatment,day) %>%
+  get_summary_stats(range, type = "mean_sd")
+
+ggboxplot(group_hobo_ph_range, x = "day", y = "range", add = "point", color = "treatment")+geom_point(shape = group_hobo_ph_range$serial)
+
+group_hobo_ph_range %>%
+  group_by(treatment, day) %>%
+  identify_outliers(range)
+
+group_hobo_ph_range %>%
+  shapiro_test(range)
+
+hobo_ph_range %>%
+  group_by(day) %>%
+  shapiro_test(pH)
+
+
+###Repeated measures ANOVA
+
+range.aov <- anova_test(data = group_hobo_ph_range, dv = range, wid = serial, within = day, between = treatment)
+                        
+get_anova_table(range.aov)
+
+#one.way<-anova_test(data = group_hobo_ph_range, dv = range, wid = serial, within = treatment)
+
+# Effect of time at each level of treatment
+one.way2 <- group_hobo_ph_range %>%
+  group_by(treatment) %>%
+  anova_test(dv = range, wid = serial, within = day) %>%
+  get_anova_table() %>%
+  adjust_pvalue(method = "bonferroni")
+
+one.way2
+
+#pwc <- hobo_ph_range %>%
+#pairwise_t_test(
+ #   range ~ day, paired = TRUE,
+  #  p.adjust.method = "bonferroni"
+   # )
+
+#pwc
+
+pwc1 <- group_hobo_ph_range %>%
+  pairwise_t_test(
+    range ~ day, paired = TRUE,
+    p.adjust.method = "bonferroni"
+    )
+
+pwc1
+
+pwc2 <- hobo_ph_range %>%
+  pairwise_t_test(
+    range ~ treatment, paired = TRUE,
+    p.adjust.method = "bonferroni"
+    )
+
+pwc2
+
+pwc3 <- group_hobo_ph_range %>%
+  pairwise_t_test(
+    range ~ treatment, paired = TRUE,
+    p.adjust.method = "bonferroni"
+    )
+
+pwc3
+
+
+```
+
