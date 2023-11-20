@@ -1,0 +1,72 @@
+---
+title: "Biofouling 4day"
+output: html_document
+date: "2023-07-30"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+library(raster)
+library(dplyr)
+library(ggplot2)
+library(ggspatial)
+library(rgdal)
+library(scales)
+library(oz)
+library(sqldf)
+library(lubridate)
+library(hms)
+library(tidyr)
+library(tidyverse)
+library(cowplot)
+library(stringr)
+
+
+```
+
+
+```{r}
+setwd("C:/Users/gagem/OneDrive/Desktop/Fouling exp/Day 4 data")
+
+pme_do_wiper_d4 <- read.csv("pme_do_wiper_d4.csv")
+pme_do_hand_d4 <- read.csv("pme_do_hand_d4.csv")
+pme_do_cop_d4 <- read.csv("pme_do_cop_d4.csv")
+pme_do_cont_d4 <- read.csv("pme_do_cont_d4.csv")
+ody_par_wiper_d4 <- read.csv("ody_par_wiper_d4.csv")
+ody_par_cont_d4 <- read.csv("ody_par_cont_d4.csv")
+hobo_ph_cop_d4 <- read.csv("hobo_ph_cop_d4.csv")
+hobo_ph_cont_d4 <- read.csv("hobo_ph_cont_d4.csv")
+hobo_do_cop_d4 <- read.csv("hobo_do_cop_d4.csv")
+hobo_do_cont_d4 <- read.csv("hobo_do_cont_d4.csv")
+
+
+ggplot(hobo_do_cont_d4)+
+  geom_point(mapping = aes(x =date_time, y = DO))+theme_cowplot()
+
+ggplot(hobo_do_cop_d4)+
+  geom_point(mapping = aes(x =date_time, y = DO))+theme_cowplot()
+```
+
